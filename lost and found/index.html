@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QIS College | Secure Asset Recovery</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --qis-blue: #0f172a;
+            --qis-accent: #facc15;
+            --success-green: #16a34a;
+            --danger-red: #ef4444;
+            --bg: #f8fafc;
+            --white: #ffffff;
+            --border: #e2e8f0;
+        }
+
+        body { margin: 0; font-family: 'Inter', sans-serif; background-color: var(--bg); color: #334155; }
+
+        header {
+            background: var(--qis-blue);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            border-bottom: 4px solid var(--qis-accent);
+        }
+
+        .nav-container { display: flex; justify-content: center; margin: 20px 0; overflow-x: auto; padding: 0 10px; }
+        .pill-nav { background: #e2e8f0; padding: 4px; border-radius: 50px; display: flex; gap: 2px; white-space: nowrap; }
+        .pill-nav button {
+            border: none; padding: 10px 18px; border-radius: 40px; cursor: pointer;
+            font-weight: 600; font-size: 0.8rem; transition: 0.2s; color: #64748b; background: transparent;
+        }
+        .pill-nav button.active { background: var(--white); color: var(--qis-blue); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+        .container { max-width: 1100px; margin: 0 auto 50px; padding: 0 15px; }
+        .section { display: none; animation: fadeIn 0.3s ease; }
+        .section.active { display: block; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .card { background: white; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .card img { width: 100%; height: 180px; object-fit: cover; }
+        .card-body { padding: 15px; }
+        
+        .btn-claim { 
+            background: var(--success-green); color: white; border: none; width: 100%; 
+            padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 10px;
+        }
+
+        .form-box { background: white; padding: 30px; border-radius: 15px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        input, textarea, select { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-family: inherit; margin-bottom: 10px; }
+        
+        .btn-main { background: var(--qis-blue); color: white; border: none; padding: 15px; border-radius: 8px; width: 100%; cursor: pointer; font-weight: bold; }
+        .btn-admin { background: #64748b; color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; cursor: pointer; margin-top: 10px; font-weight: 600; }
+        .btn-cancel { background: #e2e8f0; color: #475569; border: none; padding: 12px; border-radius: 8px; width: 100%; cursor: pointer; margin-top: 10px; font-weight: 600; }
+        
+        #loadingOverlay, #claimModal, #fullCamOverlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 3000; justify-content: center; align-items: center; backdrop-filter: blur(4px);
+        }
+        #loadingOverlay { background: rgba(255,255,255,0.8); flex-direction: column; }
+        #claimModal { background: rgba(0,0,0,0.6); }
+        #fullCamOverlay { background: #000; flex-direction: column; }
+
+        .modal-content { background: white; padding: 25px; border-radius: 15px; width: 90%; max-width: 450px; max-height: 90vh; overflow-y: auto; }
+        #fullCamVideo { width: 100%; height: 85%; object-fit: cover; transform: scaleX(-1); } 
+        .cam-ui { height: 15%; background: #000; display: flex; justify-content: space-around; align-items: center; width: 100%; }
+        .shutter { width: 65px; height: 65px; background: white; border-radius: 50%; border: 5px solid #333; cursor: pointer; }
+
+        .history-card { background: white; border-radius: 12px; padding: 25px; border: 1px solid var(--border); overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        th { background: #f8fafc; text-align: left; padding: 15px; font-size: 0.85rem; color: #64748b; border-bottom: 2px solid #edf2f7; }
+        td { padding: 15px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+
+        .btn-view-photo { background: var(--qis-blue); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div id="loadingOverlay">
+    <i class="fas fa-spinner fa-spin fa-3x" style="color: var(--qis-blue);"></i>
+    <p style="margin-top:15px; font-weight:bold;">Processing Request...</p>
+</div>
+
+<header>
+    <div style="display:flex; align-items:center; justify-content:center; gap:10px;">
+        <img src="C:\Users\nagab\OneDrive\Pictures\QIS-logo.jpeg" alt="QIS" style="height:45px; background:white; border-radius:4px; padding:2px;" onerror="this.src='https://via.placeholder.com/45?text=QIS'">
+        <h1 style="margin:0; font-size: 1.5rem;">QIS Lost & Found Registry</h1>
+    </div>
+</header>
+
+<div class="nav-container">
+    <div class="pill-nav">
+        <button id="nav-view" class="active" onclick="showSection('view')">Search Found Items</button>
+        <button id="nav-upload" onclick="showSection('upload')">Report Found</button>
+        <button id="nav-complaints" onclick="showSection('complaints')">Lost Complaints</button>
+        <button id="nav-history" onclick="showSection('history')">Handover History</button>
+    </div>
+</div>
+
+<div class="container">
+    <div id="view" class="section active">
+        <div class="form-box" style="max-width: 500px; margin: 0 auto;">
+            <h2 style="text-align:center;"><i class="fas fa-search"></i> Secure Item Search</h2>
+            <label>Item Name</label>
+            <input type="text" id="searchName" placeholder="e.g. Ring, Wallet, Key">
+            <label>Lost Since</label>
+            <input type="date" id="searchDate">
+            <button class="btn-main" onclick="performSecureSearch()">Search Registry</button>
+            <button class="btn-admin" onclick="viewAllRegistryAdmin()">
+                <i class="fas fa-lock"></i> View All Items (Admin Only)
+            </button>
+        </div>
+        <div id="searchResults" style="display:none; margin-top:30px;">
+            <h3 style="text-align:center; color:var(--qis-blue);" id="searchTitle">Results</h3>
+            <div class="grid" id="itemsList"></div>
+        </div>
+    </div>
+
+    <div id="upload" class="section">
+        <div class="form-box">
+            <h2 style="margin-top:0"><i class="fas fa-pen-nib"></i> Register Found Item</h2>
+            <div class="form-row">
+                <input id="itemName" placeholder="Item Name">
+                <input id="fRoll" placeholder="Founder Roll No.">
+            </div>
+            <div class="form-row">
+                <input id="fPhone" type="tel" placeholder="Founder Mobile Number">
+                <input id="fSection" placeholder="Section (e.g. CSE-C)">
+            </div>
+            <div class="form-row">
+                <select id="itemCategory">
+                    <option value="">-- Select Category --</option>
+                    <option value="Electronics">Electronic Gadget</option>
+                    <option value="Ornaments">Ornament (Watch/Ring)</option>
+                    <option value="Stationery">Stationery/Books</option>
+                    <option value="Wallet/ID">Wallet / ID Card</option>
+                    <option value="Clothing">Clothing / Bag</option>
+                    <option value="Other">Other</option>
+                </select>
+                <input id="fTeacher" placeholder="Class Teacher Name">
+            </div>
+            <input id="fLocation" placeholder="Current Handover Point (e.g. Exam Cell)">
+            <textarea id="itemDesc" rows="3" placeholder="Additional Details/Description"></textarea>
+            
+            <button type="button" onclick="openFullCam()" style="background:#0f172a; color:white; padding:12px; border-radius:8px; border:none; cursor:pointer; width:100%; margin-bottom:10px;">
+                <i class="fas fa-camera"></i> Take Item Photo
+            </button>
+            <center><img id="itemImgPreview" style="display:none; width:120px; border-radius:8px; margin-bottom:15px; border:1px solid #ddd;"></center>
+            <button class="btn-main" onclick="handleUpload()">Submit to Registry</button>
+        </div>
+    </div>
+
+    <div id="complaints" class="section">
+        <div class="form-box" style="border-top: 5px solid var(--danger-red);">
+            <h2 style="margin-top:0; color:var(--danger-red);"><i class="fas fa-exclamation-circle"></i> Post a Lost Complaint</h2>
+            <p style="font-size: 0.85rem; margin-bottom: 20px;">Lost something? Post it here so others can contact you if they find it.</p>
+            <div class="form-row">
+                <input id="compItem" placeholder="What did you lose?">
+                <input id="compName" placeholder="Your Full Name">
+            </div>
+            <div class="form-row">
+                <input id="compRoll" placeholder="Your Roll Number">
+                <input id="compPhone" type="tel" placeholder="Contact Mobile Number">
+            </div>
+            <textarea id="compDesc" rows="3" placeholder="Description of item & last seen location..."></textarea>
+            <button class="btn-main" style="background:var(--danger-red);" onclick="handleComplaint()">Submit Public Complaint</button>
+        </div>
+
+        <h3 style="text-align:center; color:var(--qis-blue); margin-bottom: 20px;">Active Public Complaints</h3>
+        <div class="grid" id="complaintsList"></div>
+    </div>
+
+    <div id="history" class="section">
+        <div class="history-card">
+            <h2>Claimed Items History</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Receiver Name</th>
+                        <th>Roll No</th>
+                        <th>Item</th>
+                        <th>Handover Photo</th>
+                        <th>Date Received</th>
+                        <th style="text-align:center">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="fullCamOverlay">
+    <video id="fullCamVideo" autoplay playsinline></video>
+    <div class="cam-ui">
+        <button onclick="closeFullCam()" style="color:black; background:white; width: 50px; height: 50px; border-radius: 50%; border: none;"><i class="fas fa-times"></i></button>
+        <div class="shutter" onclick="capturePhoto()"></div>
+        <div style="width:50px;"></div>
+    </div>
+</div>
+
+<div id="claimModal">
+    <div class="modal-content">
+        <h2 style="margin-top:0; color: var(--qis-blue);"><i class="fas fa-user-check"></i> Handover Details</h2>
+        <input type="text" id="recName" placeholder="Receiver's Full Name">
+        <input type="text" id="recRoll" placeholder="Receiver's Roll Number">
+        <input type="text" id="recSec" placeholder="Receiver's Section">
+        <label style="font-size:0.8rem; font-weight:bold;">Capture Handover Photo</label>
+        <div id="camera-container" style="display:none; margin-top:10px;">
+            <video id="video" autoplay playsinline style="width:100%; border-radius:8px; transform: scaleX(-1);"></video>
+        </div>
+        <center><img id="photoPreview" style="display:none; width:100%; border-radius:8px; margin-top:10px;"></center>
+        <button id="startCamBtn" class="btn-main" style="background:#6366f1; margin-top:10px;" onclick="startCamera()">
+            <i class="fas fa-camera"></i> Open Camera
+        </button>
+        <button id="captureBtn" class="btn-main" style="background:var(--success-green); display:none; margin-top:10px;" onclick="takePhoto()">
+            <i class="fas fa-circle"></i> Capture Photo
+        </button>
+        <button class="btn-main" style="margin-top:15px;" onclick="confirmClaim()">Complete Handover</button>
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+
+window.secureViewPhoto = (photoUrl) => {
+    const access = prompt("Restricted Gallery: Enter Admin Passcode to view handover proof:");
+    
+    if (access === ADMIN_PASSCODE) {
+        if (!photoUrl || photoUrl === "undefined") {
+            alert("Error: Photo link is missing or corrupted.");
+        } else {
+           
+            window.open(photoUrl, '_blank');
+        }
+    } else if (access !== null) {
+        alert("Unauthorized Access. Incorrect Passcode.");
+    }
+};
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCF9mI1W9QE4XSgs-MYfobVQlWvq5COBE4",
+        authDomain: "qis-lost-found.firebaseapp.com",
+        projectId: "qis-lost-found",
+        storageBucket: "qis-lost-found.firebasestorage.app",
+        messagingSenderId: "172470817970",
+        appId: "1:172470817970:web:b73881ebc0e8c2bf06e5ab"
+    };
+
+    const CLOUD_NAME = "dxcpaqy5e"; 
+    const UPLOAD_PRESET = "qis_unsigned"; 
+    const ADMIN_PASSCODE = "2811421";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let stream = null;
+    let capturedBlob = null;
+    let searchMatches = [];
+    let currentClaimIdx = null;
+
+    // Navigation Logic
+    window.showSection = (id) => {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        document.querySelectorAll('.pill-nav button').forEach(b => b.classList.remove('active'));
+        document.getElementById('nav-' + id).classList.add('active');
+        
+        if(id === 'history') loadHistory();
+        if(id === 'complaints') loadComplaints();
+    };
+
+    // Camera Handlers
+    window.openFullCam = async () => {
+        document.getElementById('fullCamOverlay').style.display = 'flex';
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            document.getElementById('fullCamVideo').srcObject = stream;
+        } catch (err) { alert("Camera Error."); }
+    };
+
+    window.closeFullCam = () => {
+        if(stream) stream.getTracks().forEach(t => t.stop());
+        document.getElementById('fullCamOverlay').style.display = 'none';
+    };
+
+    window.capturePhoto = () => {
+        const video = document.getElementById('fullCamVideo');
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        canvas.toBlob((blob) => {
+            capturedBlob = blob;
+            document.getElementById('itemImgPreview').src = URL.createObjectURL(blob);
+            document.getElementById('itemImgPreview').style.display = 'block';
+            closeFullCam();
+        }, 'image/jpeg', 0.8);
+    };
+
+    async function uploadToCloudinary(blob) {
+        const formData = new FormData();
+        formData.append("file", blob);
+        formData.append("upload_preset", UPLOAD_PRESET);
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: "POST", body: formData });
+        const data = await res.json();
+        return data.secure_url;
+    }
+
+    // Found Item Logic
+    window.handleUpload = async () => {
+        const name = document.getElementById('itemName').value;
+        if(!capturedBlob || !name) return alert("Photo and Item Name required.");
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        try {
+            const url = await uploadToCloudinary(capturedBlob);
+            await addDoc(collection(db, "items"), {
+                name: name, fRoll: document.getElementById('fRoll').value,
+                fPhone: document.getElementById('fPhone').value,
+                fSection: document.getElementById('fSection').value,
+                category: document.getElementById('itemCategory').value,
+                fTeacher: document.getElementById('fTeacher').value,
+                fLocation: document.getElementById('fLocation').value,
+                desc: document.getElementById('itemDesc').value,
+                img: url, createdAt: Timestamp.now()
+            });
+            alert("Registered successfully!");
+            location.reload();
+        } catch(e) { alert("Error: " + e.message); }
+        finally { document.getElementById('loadingOverlay').style.display = 'none'; }
+    };
+
+    // COMPLAINTS LOGIC
+    window.handleComplaint = async () => {
+        const item = document.getElementById('compItem').value;
+        const name = document.getElementById('compName').value;
+        const phone = document.getElementById('compPhone').value;
+
+        if(!item || !name || !phone) return alert("Item, Name and Phone are required.");
+
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        try {
+            await addDoc(collection(db, "complaints"), {
+                item: item, name: name, 
+                roll: document.getElementById('compRoll').value,
+                phone: phone, desc: document.getElementById('compDesc').value,
+                createdAt: Timestamp.now()
+            });
+            alert("Complaint Posted Successfully.");
+            document.querySelectorAll('#complaints input, #complaints textarea').forEach(el => el.value = "");
+            loadComplaints();
+        } catch(e) { alert("Error: " + e.message); }
+        finally { document.getElementById('loadingOverlay').style.display = 'none'; }
+    };
+
+    window.loadComplaints = async () => {
+        const list = document.getElementById("complaintsList");
+        list.innerHTML = "<p style='grid-column:1/-1; text-align:center;'>Loading complaints...</p>";
+        try {
+            const snapshot = await getDocs(query(collection(db, "complaints"), orderBy("createdAt", "desc")));
+            let html = "";
+            snapshot.forEach(d => {
+                const data = d.data();
+                html += `
+                    <div class="card" style="border-left: 5px solid var(--danger-red);">
+                        <div class="card-body">
+                            <span style="float:right; background:var(--danger-red); color:white; font-size:0.6rem; padding:2px 6px; border-radius:5px; font-weight:bold;">LOST</span>
+                            <h3 style="margin-top:0;">${data.item}</h3>
+                            <p style="font-size:0.85rem; color:#64748b;">${data.desc || 'No description provided.'}</p>
+                            <div style="font-size:0.75rem; background:#f1f5f9; padding:10px; border-radius:6px; margin-top:10px;">
+                                <b>Name:</b> ${data.name} (${data.roll})<br>
+                                <b>Contact:</b> <a href="tel:${data.phone}" style="color:var(--danger-red); font-weight:bold;">${data.phone}</a>
+                            </div>
+                            <button onclick="deleteComplaint('${d.id}')" style="margin-top:10px; border:none; background:none; color:#94a3b8; cursor:pointer; font-size:0.7rem;"><i class="fas fa-trash"></i> Remove (Admin)</button>
+                        </div>
+                    </div>
+                `;
+            });
+            list.innerHTML = html || "<p style='grid-column:1/-1; text-align:center;'>No complaints found.</p>";
+        } catch(e) { list.innerHTML = "Error loading."; }
+    };
+
+    window.deleteComplaint = async (id) => {
+        if(prompt("Enter Admin Passcode to remove:") === ADMIN_PASSCODE) {
+            await deleteDoc(doc(db, "complaints", id));
+            loadComplaints();
+        }
+    };
+
+    // Search & Handover Logic (Existing)
+    window.performSecureSearch = async () => {
+        const sName = document.getElementById("searchName").value.toLowerCase().trim();
+        if(!sName) return alert("Enter Item Name.");
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        try {
+            const snapshot = await getDocs(query(collection(db, "items"), orderBy("createdAt", "desc")));
+            searchMatches = [];
+            snapshot.forEach(d => {
+                if(d.data().name.toLowerCase().includes(sName)) searchMatches.push({id: d.id, ...d.data()});
+            });
+            document.getElementById('searchTitle').innerText = "Found Registry Results";
+            renderSearch(searchMatches);
+            document.getElementById('searchResults').style.display = 'block';
+        } catch(e) { alert('Search failed'); }
+        document.getElementById('loadingOverlay').style.display = 'none';
+    };
+
+    window.viewAllRegistryAdmin = async () => {
+        const passcode = prompt("Enter Admin Passcode:");
+        if (passcode === ADMIN_PASSCODE) {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+            const snapshot = await getDocs(query(collection(db, "items"), orderBy("createdAt", "desc")));
+            searchMatches = [];
+            snapshot.forEach(d => searchMatches.push({id: d.id, ...d.data()}));
+            renderSearch(searchMatches);
+            document.getElementById('searchResults').style.display = 'block';
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+    };
+
+    function renderSearch(matches) {
+        const list = document.getElementById("itemsList");
+        list.innerHTML = matches.length === 0 ? "<div style='grid-column:1/-1; text-align:center; padding:50px;'>No items found.</div>" :
+            matches.map((item, i) => `
+                <div class="card">
+                    <img src="${item.img}">
+                    <div class="card-body">
+                        <h3>${item.name}</h3>
+                        <p style="font-size:0.85rem; color:#64748b;">${item.desc || 'No description'}</p>
+                        <div style="font-size:0.75rem;">
+                            <b>Location:</b> ${item.fLocation}<br>
+                            <b>Founder Phone:</b> <a href="tel:${item.fPhone}">${item.fPhone}</a>
+                        </div>
+                        <button class="btn-claim" onclick="openClaimModal(${i})">Complete Handover</button>
+                    </div>
+                </div>
+            `).join('');
+    }
+
+    // Modal / Claim Logic
+    window.openClaimModal = (i) => { currentClaimIdx = i; document.getElementById('claimModal').style.display = 'flex'; };
+    window.closeModal = () => { if(stream) stream.getTracks().forEach(t => t.stop()); document.getElementById('claimModal').style.display = 'none'; };
+
+    window.startCamera = async () => {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        document.getElementById('video').srcObject = stream;
+        document.getElementById('camera-container').style.display = "block";
+        document.getElementById('startCamBtn').style.display = "none";
+        document.getElementById('captureBtn').style.display = "block";
+    };
+
+    window.takePhoto = () => {
+        const video = document.getElementById('video');
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0);
+        canvas.toBlob((blob) => {
+            capturedBlob = blob;
+            document.getElementById('photoPreview').src = URL.createObjectURL(blob);
+            document.getElementById('photoPreview').style.display = "block";
+            document.getElementById('camera-container').style.display = "none";
+            document.getElementById('captureBtn').style.display = "none";
+            if(stream) stream.getTracks().forEach(t => t.stop());
+        }, 'image/jpeg', 0.7);
+    };
+
+    window.confirmClaim = async () => {
+        const rName = document.getElementById('recName').value;
+        if(!rName || !capturedBlob) return alert("Receiver Name & Photo required.");
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        const item = searchMatches[currentClaimIdx];
+        try {
+            const handUrl = await uploadToCloudinary(capturedBlob);
+            await addDoc(collection(db, "history"), {
+                name: rName, roll: document.getElementById('recRoll').value,
+                thing: item.name, handoverPhoto: handUrl, date: new Date().toLocaleString()
+            });
+            await deleteDoc(doc(db, "items", item.id));
+            alert("Handover Registered!");
+            location.reload();
+        } catch(e) { alert(e.message); }
+    };
+
+    
+
+    // History Logic
+    window.loadHistory = async () => {
+        const tbody = document.getElementById('historyTableBody');
+        tbody.innerHTML = "<tr><td colspan='6' style='text-align:center;'>Fetching...</td></tr>";
+        const snapshot = await getDocs(collection(db, "history"));
+        let history = [];
+        snapshot.forEach(d => history.push({id: d.id, ...d.data()}));
+        tbody.innerHTML = history.map(h => `
+            <tr>
+                <td><b>${h.name}</b></td>
+                <td>${h.roll}</td>
+                <td>${h.thing}</td>
+               <td><button class="btn-view-photo" onclick="secureViewPhoto('${h.handoverPhoto}')">View Photo</button></td>
+                <td>${h.date}</td>
+                <td><button onclick="deleteHistoryRecord('${h.id}')" style="border:none; color:red; cursor:pointer;"><i class="fas fa-trash"></i></button></td>
+            </tr>
+        `).join('') || "<tr><td colspan='6' style='text-align:center;'>No records.</td></tr>";
+    };
+
+    window.deleteHistoryRecord = async (id) => {
+        if(prompt("Admin Passcode:") === ADMIN_PASSCODE) {
+            await deleteDoc(doc(db, "history", id));
+            loadHistory();
+        }
+    };
+</script>
+
+</body>
+</html>
